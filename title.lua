@@ -75,6 +75,7 @@ function titledraw()
   buttonStart:draw()
   buttonCredits:draw()
   buttonExit:draw()
+  love.graphics.print("v gj.0.0", 700, 550)
   love.graphics.printf("press SPACE to start", 0, 550, 800, "center")
 
   love.graphics.draw(cursor.image, cursor.x, cursor.y, cursor.angle, cursor.scale, cursor.scale, cursor.origin_x)
@@ -108,7 +109,7 @@ function titleupdate(dt)
     titleFaderState = true
   elseif love.keyboard.isDown('space') and cursor.y == posCredits then
     love.audio.play(sfxCredits)
-    scene="lore"
+    scene="credits"
   elseif love.keyboard.isDown('space') and cursor.y == posExit then
     love.event.quit(0)
   end

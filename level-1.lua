@@ -1,31 +1,33 @@
 require("classes/enemy")
 require("classes/clue")
+require("classes/player")
 
+-- Clue letters for this level:
 local letters = {"E", "G", "B", "D", "F"}
 local numOfClues = #letters
-
 local bgColor = {0.15, 0.15, 0.15, 0}
+local bgLevel1 = love.graphics.newImage("assets/backgrounds/bg_level1.png")
 local speechBubble = love.graphics.newImage("assets/temp/speechBubbleTemp.png")
 
 -- Audio and SFX
 local levelClear = love.audio.newSource("assets/music/level_clear.wav", "static")
-
 local gameOver = love.audio.newSource("assets/music/game_over.wav", "static")
 gameOver:setVolume(0.3)
-
 local letterChime = {}
 for i = 1,numOfClues do
   table.insert(letterChime, love.audio.newSource("assets/sfx/letter_clues/marim_"..letters[i]..".wav", "static"))
   letterChime[i]:setVolume(0.3)
   --letterChime[i].played = false
 end
-
 local ghostVoice = {}
 for i = 0,4 do
   table.insert(ghostVoice, love.audio.newSource("assets/sfx/hmm"..i..".wav", "static"))
 end
 
-local bgLevel1 = love.graphics.newImage("assets/backgrounds/bg_level1.png")
+-- Condition variables for all prompts
+local timeElapsed = 0
+local win = false
+local busted
 local restart = false
 
 ---------------------------------
@@ -34,88 +36,75 @@ local restart = false
 
 function level1load()
 
-  ghostAnim = newAnimation(love.graphics.newImage("assets/ghost_detective/idleAnim.png"), 250, 250, 4)
-  winStamp = newAnimation(love.graphics.newImage("assets/ghost_detective/winStamp.png"), 250, 250, 4)
-  loseStamp = newAnimation(love.graphics.newImage("assets/ghost_detective/loseStamp.png"), 250, 250, 4)
-  angryAnim = newAnimation(love.graphics.newImage("assets/enemies/angryAnim.png"), 250, 250, 1)
+    busted = false
 
-  anims = {ghostAnim, winStamp, loseStamp, angryAnim}
+    -- Playable area container
+    playableArea = {}
+    playableArea.x = 250
+    playableArea.y = 20
+    playableArea.border = 20
+    playableArea.size_x = love.graphics.getWidth() - playableArea.x - playableArea.border
+    playableArea.size_y = love.graphics.getHeight() - playableArea.y - playableArea.border
 
-  -- Playable area container
-  playableArea = {}
-  playableArea.x = 250
-  playableArea.y = 20
-  playableArea.border = 20
-  playableArea.size_x = love.graphics.getWidth() - playableArea.x - playableArea.border
-  playableArea.size_y = love.graphics.getHeight() - playableArea.y - playableArea.border
+    -- Start position for player
+    local playerStartPosition = {}  -- player is the main controller component that reveals hidden "clues" within the background layer
+    playerStartPosition.x = (love.graphics.getWidth() / 2) + (playableArea.x / 2)
+    playerStartPosition.y = (love.graphics.getHeight() / 2) + (playableArea.y / 2)
 
-  -- Main player cursor
-  finderLens = {}  -- finderLens is the main controller component that reveals hidden "clues" within the background layer
-  finderLens.x = (love.graphics.getWidth() / 2) + (playableArea.x / 2)
-  finderLens.y = (love.graphics.getHeight() / 2) + (playableArea.y / 2)
-  finderLens.size = 40  -- Size of the lens that reveals objects, 40 fits nicely with the current size of finderHandle, will change with art
-  finderLens.speed = 200  -- Set player movement speed
-  finderLens.image = love.graphics.newImage("assets/temp/finderHandle.png")
-  finderLens.origin_x = finderLens.image:getWidth() / 2
-  finderLens.origin_y = finderLens.image:getHeight() / 2
-  finderLens.offset_x = 50
-  finderLens.offset_y = 48
-  finderLens.visibility = true
-  isMoving = false
+    ghostAnim = newAnimation(love.graphics.newImage("assets/ghost_detective/idleAnim.png"), 250, 250, 4)
+    winStamp = newAnimation(love.graphics.newImage("assets/ghost_detective/winStamp.png"), 250, 250, 4)
+    loseStamp = newAnimation(love.graphics.newImage("assets/ghost_detective/loseStamp.png"), 250, 250, 4)
+    angryAnim = newAnimation(love.graphics.newImage("assets/enemies/angryAnim.png"), 250, 250, 1)
 
-  -- Instantiate enemies for this level
-  enemySpeed = 75
-  enemy1 = Enemy(false, false, 300, 200)
+    anims = {ghostAnim, winStamp, loseStamp, angryAnim}
 
-  -- Instantiate clues for this level
-  clueColor = {}
-  for i = 1,5 do
-    table.insert(clueColor, 0.3)
-  end
-  clue1 = Clue(false, true, 400, 300, letters[1])
-  clue2 = Clue(false, false, 600, 200, letters[2])
-  clue3 = Clue(false, false, 300, 500, letters[3])
-  clue4 = Clue(false, false, 400, 100, letters[4])
-  clue5 = Clue(false, false, 700, 300, letters[5])
-  clues = {clue1, clue2, clue3, clue4, clue5}
+    player = Player(playerStartPosition.x, playerStartPosition.y) -- Instantiate player
+    enemy1 = Enemy(false, false, 300, 200, 50) -- Instantiate enemies for this level
 
-  -- NOTE: Clue randomizer for later:
-  -- math.random(playableArea.x + finderLens.size, playableArea.size_x)
-  -- math.random(playableArea.y + finderLens.size, playableArea.size_y)
+    -- Instantiate clues for this level
+    clueColor = {}
+    for i = 1,5 do
+      table.insert(clueColor, 0.3)
+    end
+    clue1 = Clue(false, true, 400, 300, letters[1])
+    clue2 = Clue(false, false, 600, 200, letters[2])
+    clue3 = Clue(false, false, 300, 500, letters[3])
+    clue4 = Clue(false, false, 400, 100, letters[4])
+    clue5 = Clue(false, false, 700, 300, letters[5])
+    clues = {clue1, clue2, clue3, clue4, clue5}
 
-  -- Bounding box for keeping the finderLens in the playable area
-  roomWidth = playableArea.size_x - finderLens.size
-  roomHeight = playableArea.size_y - finderLens.size
+    -- Bounding box for keeping the player in the playable area
+    roomWidth = playableArea.size_x - player.size
+    roomHeight = playableArea.size_y - player.size
 
-  -- Condition variables for all prompts
-  win = false
-  timeElapsed = 0
-  busted = false
+    -- Clocks for each level
+    local speakClock
+    allowSpeak = true
+    levelFader = 0
+    local sceneClock
+    allowChange = false
+    local invisClock
+    allowInvis = true
+    local duration
+    visible = true
 
-  -- Cron / clock variables
-  local speakClock
-  allowSpeak = true
-  levelFader = 0
-  local sceneClock
-  allowChange = false
-  local invisClock
-  allowInvis = true
-  local duration
-  visible = true
+    -- Unsorted set conditions
+    love.graphics.newFont(35)
+    love.graphics.setBackgroundColor(0.2, 0.2, 0.2, 0.4)
 
-  -- Unsorted set conditions
-  love.graphics.newFont(35)
-  love.graphics.setBackgroundColor(0.2, 0.2, 0.2, 0.4)
+    -- NOTE: Clue randomizer for later:
+    -- math.random(playableArea.x + player.size, playableArea.size_x)
+    -- math.random(playableArea.y + player.size, playableArea.size_y)
 end
 
 ---------------------------------
 -- Early functions (dependencies)
 ---------------------------------
 
-function finderLensStencil()
+function playerStencil()
    -- Stencil function that is used to reveal hidden "clue" layer
    love.graphics.setColor(1, 1, 1)
-   love.graphics.circle("fill", finderLens.x, finderLens.y, finderLens.size)
+   love.graphics.circle("fill", player.x, player.y, player.size)
 end
 
 ---------------------------------
@@ -123,224 +112,206 @@ end
 ---------------------------------
 
 function level1update(dt)
+    timeElapsed = timeElapsed + 1 * dt
 
-  if love.keyboard.isDown('space') and allowInvis and timeElapsed > 10 and not busted then
-    finderLens.visibility = false
-    invisDuration()
-    invisibilityTimer()
-  elseif visible then
-    finderLens.visibility = true
-  end
+    if not love.graphics.setFont(font_speech) then
+      love.graphics.setFont(font_speech)
+    end
 
-  if not love.graphics.setFont(font_speech) then
-    love.graphics.setFont(font_speech)
-  end
+    if speakClock then speakClock:update(dt) end
+    if sceneClock then sceneClock:update(dt) end
+    if invisClock then invisClock:update(dt) end
+    if duration then duration:update(dt) end
 
-  timeElapsed = timeElapsed + 1 * dt
+    for i = 1,#anims do
+      anims[i].currentTime = anims[i].currentTime + dt
+      if anims[i].currentTime >= anims[i].duration then
+        anims[i].currentTime = anims[i].currentTime - anims[i].duration
+      end
+    end
 
-  if speakClock then speakClock:update(dt) end
-  if sceneClock then sceneClock:update(dt) end
-  if invisClock then invisClock:update(dt) end
-  if duration then duration:update(dt) end
+    ------------------
 
-  -- Loss condition controller
-  if not bgm:isPlaying() and not busted then
-    bgm = love.audio.newSource("assets/music/bgm_level1.ogg", "static")
-    bgm:setVolume(0.5)
-    bgm:play()
-  elseif busted then
-    love.audio.play(gameOver)
-    while bgmVolume > 0.0 do
-      bgmVolume = bgmVolume - 2.0 * dt
-      bgm:setVolume(bgmVolume)
+    -- Player controller using arrow keys or WASD
+    if busted == false and (timeElapsed > 5 or restart) and player.visibility then
+      player:update(dt, roomWidth,roomHeight,playableArea)
     end
-    levelFader = levelFader + 1 * dt
-    if levelFader >= 1 then
-      bgm:stop()
-      love.timer.sleep(2.5)
-      love.load()
-    end
-  end
 
-  for i = 1,#anims do
-    anims[i].currentTime = anims[i].currentTime + dt
-    if anims[i].currentTime >= anims[i].duration then
-      anims[i].currentTime = anims[i].currentTime - anims[i].duration
+    -- Invisibility updater
+    if love.keyboard.isDown('space') and allowInvis and timeElapsed > 10 and not busted then
+      player.visibility = false
+      invisDuration()
+      invisibilityTimer()
+    elseif visible then
+      player.visibility = true
     end
-  end
 
-  -- Player controller using arrow keys or WASD
-  if busted == false and (timeElapsed > 5 or restart) and finderLens.visibility then
-    if finderLens.x <= roomWidth + playableArea.x and
-      love.keyboard.isDown('right', 'd') then
-        finderLens.x = finderLens.x + finderLens.speed * dt
-        isMoving = true
+    -- Enemy AI controller
+    if not win and clue2.update_state then
+      enemy1.draw_state = true
+      if clue3.update_state then
+        enemy1.update_state = true
+        enemy1:update(player, visible, dt)
+      end
+      if clue4.update_state then
+        enemy1.speed = 100
+      end
     end
-    if finderLens.x >= finderLens.size + playableArea.x and
-      love.keyboard.isDown('left', 'a') then
-        finderLens.x = finderLens.x - finderLens.speed * dt
-        isMoving = true
-    end
-    if finderLens.y <= roomHeight + playableArea.y and
-      love.keyboard.isDown('down', 's') then
-        finderLens.y = finderLens.y + finderLens.speed * dt
-        isMoving = true
-    end
-    if finderLens.y >= finderLens.size + playableArea.y and
-      love.keyboard.isDown('up', 'w') then
-        finderLens.y = finderLens.y - finderLens.speed * dt
-        isMoving = true
-    end
-    if not love.keyboard.isDown('up', 'down', 'left', 'right',
-      'w', 'a', 's', 'd') then
-      isMoving = false
-    end
-  end
 
-  -- Enemy AI controller
-  if not win and clue2.update_state then
-    enemy1.draw_state = true
-    if clue3.update_state then
-      enemy1.update_state = true
-      enemy1:update(finderLens, visible, enemySpeed, dt)
-    end
-    if clue4.update_state then
-      enemySpeed = 100
-    end
-  end
-
-  -- Clue handler
-  for i = 1,numOfClues do
-    if clues[i].update_state and i < #letters then
-      clues[i+1]:update(clueColor[i+1], dt)
-    end
-    if clues[i].draw_state then
-      clues[i]:update(clueColor[i], dt)
-      if distanceBetween(clues[i].x, clues[i].y, finderLens.x, finderLens.y) < clues[i].size then
-        clueColor[i] = clueColor[i] + (0.3 * dt)
-        if love.audio.getActiveSourceCount() < 2 and clues[i].update_state == false and allowSpeak and clueColor[i] < 0.9 then
-          ghostVoice[math.floor(math.random(1,4))]:play()
-          speakTimer()
-        end
-        if clueColor[i] >= 1 and clues[i].update_state == false then
-          love.audio.play(letterChime[i])
-          clues[i].update_state = true
+    -- Clue handler
+    for i = 1,numOfClues do
+      if clues[i].update_state and i < #letters then
+        clues[i+1]:update(clueColor[i+1], dt)
+      end
+      if clues[i].draw_state then
+        clues[i]:update(clueColor[i], dt)
+        if distanceBetween(clues[i].x, clues[i].y, player.x, player.y) < clues[i].size then
+          clueColor[i] = clueColor[i] + (0.3 * dt)
+          if love.audio.getActiveSourceCount() < 2 and clues[i].update_state == false and allowSpeak and clueColor[i] < 0.9 then
+            ghostVoice[math.floor(math.random(1,4))]:play()
+            speakTimer()
+          end
+          if clueColor[i] >= 1 and clues[i].update_state == false then
+            love.audio.play(letterChime[i])
+            clues[i].update_state = true
+          end
         end
       end
     end
-  end
 
-  --  Win condition
-  if clues[numOfClues].update_state then
-    win = true
-    levelFader = levelFader + 1 * dt
-    if levelFader >= 1 then
+    --  Win condition controller
+    if clues[numOfClues].update_state then
+      win = true
+      levelFader = levelFader + 1 * dt
+
+      if levelFader >= 1 then
+        bgm:stop()
+        levelClear:play()
+        clear_level1 = true
+        love.timer.sleep(4)
+        love.load()
+      end
+    end
+
+    -- Loss condition controller
+    if not bgm:isPlaying() and not busted then
+      bgm = love.audio.newSource("assets/music/bgm_level1.ogg", "static")
+      bgm:setVolume(0.5)
+      bgm:play()
+    elseif busted then
+      love.audio.play(gameOver)
+      while bgmVolume > 0.0 do
+        bgmVolume = bgmVolume - 2.0 * dt
+        bgm:setVolume(bgmVolume)
+      end
+      levelFader = levelFader + 1 * dt
+      if levelFader >= 1 then
+        bgm:stop()
+        love.timer.sleep(2.5)
+        love.load()
+      end
+    end
+
+    -- Escape key back to main menu
+    if love.keyboard.isDown('escape') then
       bgm:stop()
-      levelClear:play()
-      clear_level1 = true
-      love.timer.sleep(4)
+      love.timer.sleep(1)
       love.load()
     end
-  end
-
-  -- Escape key back to main menu
-  if love.keyboard.isDown('escape') then
-    bgm:stop()
-    love.timer.sleep(1)
-    love.load()
-  end
 end
 
 ---------------------------------
 -- Draw
 ---------------------------------
 
+-- Order of drawing: background, playableArea, speech, ghost, clues, player, enemies
+
 function level1draw()
-   -- Each pixel touched by the circle will have its stencil value set to 1. The rest will be 0.
-   love.graphics.stencil(finderLensStencil, "replace", 1)
+    -- Each pixel touched by the circle will have its stencil value set to 1. The rest will be 0.
+    love.graphics.stencil(playerStencil, "replace", 1)
 
-   love.graphics.draw(bgLevel1, 0, 0, 0, 0.25, 0.25)
-   love.graphics.setColor(0, 0, 0, 0.5)
-   love.graphics.rectangle("fill", 0, 0, 800, 600)
+    -- Background layer
+    love.graphics.draw(bgLevel1, 0, 0, 0, 0.25, 0.25)
+    love.graphics.setColor(0, 0, 0, 0.5) -- Darken background with transparent layer
+    love.graphics.rectangle("fill", 0, 0, 800, 600)
 
-   love.graphics.setColor(1,1,1)
+    -- Draw playable area rectangle layers
+    love.graphics.setColor(0.5, 0.5, 0.5)
+    love.graphics.rectangle("line", playableArea.x, playableArea.y,
+      playableArea.size_x, playableArea.size_y)
+    love.graphics.setColor(0.15, 0.15, 0.15, 0.5)
+    love.graphics.rectangle("fill", playableArea.x, playableArea.y,
+      playableArea.size_x, playableArea.size_y)
 
-   -- Clue 1:
-   if clues[1].update_state == false and clueColor[1] > 0.3 then
+    -- Speech handler for this level
+    love.graphics.setColor(1,1,1)
+    -- Clue 1:
+    if clues[1].update_state == false and clueColor[1] > 0.3 then
      drawText("Oh? I think that's a clue - let's get a closer look!")
-   elseif clues[1].update_state == false and restart == true then
+    elseif clues[1].update_state == false and restart == true then
      drawText("Let's look for clues! Use the arrow keys to find them.")
-   elseif clues[1].update_state == false and timeElapsed > 8 then
+    elseif clues[1].update_state == false and timeElapsed > 8 then
      drawText("But! We are going to look for clues anyway - because it's fun! Use the arrow keys to snoop around.")
-   elseif clues[1].update_state == false and timeElapsed > 5 then
+    elseif clues[1].update_state == false and timeElapsed > 5 then
      drawText("You know, I'm not sure if anything has actually happened here.")
-   elseif clues[1].update_state == false and timeElapsed > 1 and clueColor[1] <= 0.3 then
+    elseif clues[1].update_state == false and timeElapsed > 1 and clueColor[1] <= 0.3 then
      drawText("Hi rookie! Welcome to the scene of the. . .\num. . . \ncrime.")
-   -- Clue 2
-   elseif clues[2].update_state == false and timeElapsed > 10 and clueColor[2] > 0.3 then
+    -- Clue 2
+    elseif clues[2].update_state == false and timeElapsed > 10 and clueColor[2] > 0.3 then
      drawText("Aha - another clue! Let's get a closer look at that.")
-   elseif clues[2].update_state == false and timeElapsed > 10 and clueColor[2] <= 0.3 then
+    elseif clues[2].update_state == false and timeElapsed > 10 and clueColor[2] <= 0.3 then
      drawText("Wow, rookie! You found a clue! Keep looking while I ponder the meaning of this...")
-   -- Clue 3
-   elseif clues[3].update_state == false and timeElapsed > 10 and clueColor[3] > 0.3 then
+    -- Clue 3
+    elseif clues[3].update_state == false and timeElapsed > 10 and clueColor[3] > 0.3 then
      drawText("'EG'... egg? Ego? Egalitarian? I think we're onto something big here. Maybe.")
-   elseif clues[3].update_state == false and timeElapsed > 10 and clueColor[3] <= 0.3 then
+    elseif clues[3].update_state == false and timeElapsed > 10 and clueColor[3] <= 0.3 then
      drawText("Hm. That ghost doesn't look too friendly. We should probably avoid him.")
-   -- Clue 4
-   elseif clues[4].update_state == false and timeElapsed > 10 and clueColor[4] > 0.3 then
+    -- Clue 4
+    elseif clues[4].update_state == false and timeElapsed > 10 and clueColor[4] > 0.3 then
      drawText("Another clue - get back to it when you can and hover over it to decode!")
-   elseif clues[4].update_state == false and enemy1.timeElapsed > 3 and clueColor[4] <= 0.3 and enemy1.update_state then
+    elseif clues[4].update_state == false and enemy1.timeElapsed > 3 and clueColor[4] <= 0.3 and enemy1.update_state then
      drawText("Uh-oh. Looks like someone doesn't want us snooping around!")
-   elseif clues[4].update_state == false and timeElapsed > 10 and clueColor[4] <= 0.3 then
+    elseif clues[4].update_state == false and timeElapsed > 10 and clueColor[4] <= 0.3 then
      drawText("'EGB'... well, shoot. There goes that.")
-   -- Clue 5
- elseif clues[5].update_state == false and timeElapsed > 10 and clueColor[5] > 0.3 then
+    -- Clue 5
+    elseif clues[5].update_state == false and timeElapsed > 10 and clueColor[5] > 0.3 then
      drawText("I think that's the last one - hurry! Use the SPACE bar to hide if he gets too close!")
-   elseif clues[5].update_state == false and timeElapsed > 10 and clueColor[5] <= 0.3 then
+    elseif clues[5].update_state == false and timeElapsed > 10 and clueColor[5] <= 0.3 then
      drawText("Nice, but uh... our neighbor here seems to be speeding up. Hurry to the next clue!")
-   end
+    end
 
-   love.graphics.setColor(1, 1, 1)
-   -- Draw Ghost
-   local spriteNum0 = math.floor(ghostAnim.currentTime / ghostAnim.duration * #ghostAnim.quads) + 1
-   love.graphics.draw(ghostAnim.spriteSheet, ghostAnim.quads[spriteNum0], 0, 290, 0, 1)
+    -- Draw Ghost
+    love.graphics.setColor(1, 1, 1)
+    local spriteNum0 = math.floor(ghostAnim.currentTime / ghostAnim.duration * #ghostAnim.quads) + 1
+    love.graphics.draw(ghostAnim.spriteSheet, ghostAnim.quads[spriteNum0], 0, 290, 0, 1)
 
-   -- Draw playable area
-   love.graphics.setColor(0.5, 0.5, 0.5)
-   love.graphics.rectangle("line", playableArea.x, playableArea.y,
-      playableArea.size_x, playableArea.size_y)
-   love.graphics.setColor(0.15, 0.15, 0.15, 0.5)
-   love.graphics.rectangle("fill", playableArea.x, playableArea.y,
-      playableArea.size_x, playableArea.size_y)
-
-   for i = 1,#clues do
+    -- Draw Clues for this level
+    for i = 1,#clues do
      if clues[i].draw_state then
        clues[i]:draw(clueColor[i], bgColor, letters[i])
        if clueColor[i] >= 1 and i < (#letters) then
          clues[i+1].draw_state = true
        end
      end
-   end
+    end
 
-   love.graphics.setStencilTest() -- Handles wild stencil stuff I don't fully understand
-   if finderLens.visibility == false then
-     love.graphics.setColor(1, 1, 1, 0.5) -- Color for finderHandle
-   else
-     love.graphics.setColor(1, 1, 1, 1) -- Color for finderHandle
-   end
-   love.graphics.draw(finderLens.image, finderLens.x - finderLens.offset_x, finderLens.y - finderLens.offset_y) -- Offset numbers that will change with new artwork for finderHandle
+    -- Draws player and sets stencil
+    love.graphics.setStencilTest()
+    player:draw()
 
-   love.graphics.setColor(1, 1, 1, 1)
-
-   if clue2.update_state then
+    -- Draw enemies for this level
+    love.graphics.setColor(1, 1, 1, 1)
+    if clue2.update_state then
      enemy1:draw(angryAnim)
-   end
+    end
 
- love.graphics.setColor(0,0,0,levelFader)
- love.graphics.rectangle("fill", 0, 0, 800, 600)
 
-  -- Win condition controller
-  if win then
+    -- Level fader box
+    love.graphics.setColor(0,0,0,levelFader)
+    love.graphics.rectangle("fill", 0, 0, 800, 600)
+
+    -- Win condition controller
+    if win then
     love.graphics.setColor(1,1,1)
     local spriteNum1 = math.floor(
       winStamp.currentTime / winStamp.duration *
@@ -349,10 +320,10 @@ function level1draw()
       winStamp.spriteSheet, winStamp.quads[spriteNum1],
       love.graphics.getWidth() / 2 - 125,
       love.graphics.getHeight() / 2 - 125, 0, 1)
-  end
+    end
 
-  -- Loss condition controller
-  if finderLens.visibility and distanceBetween(enemy1.x, enemy1.y, finderLens.x, finderLens.y) <
+    -- Loss condition controller
+    if player.visibility and distanceBetween(enemy1.x, enemy1.y, player.x, player.y) <
     enemy1.size and enemy1.draw_state and win == false then
       love.graphics.setColor(1,1,1)
       local spriteNum1 = math.floor(
@@ -364,7 +335,7 @@ function level1draw()
         love.graphics.getHeight() / 2 - 125, 0, 1)
       busted = true
       restart = true
-  end
+    end
 end
 
 ---------------------------------
@@ -372,58 +343,58 @@ end
 ---------------------------------
 
 function distanceBetween (x1, y1, x2, y2)
-	-- distance formula: d = √(y2 - y1)^2 + (x2 - x1)^2
-	return math.sqrt((y2-y1)^2 + (x2-x1)^2)
+  	-- distance formula: d = √(y2 - y1)^2 + (x2 - x1)^2
+  	return math.sqrt((y2-y1)^2 + (x2-x1)^2)
 end
 
 function drawText(text)
-  love.graphics.draw(speechBubble, 17, 100)
-  love.graphics.setColor(0.3, 0.3, 0.3)
-  love.graphics.printf(text, 30, 120, 200, "left")
+    love.graphics.draw(speechBubble, 17, 100)
+    love.graphics.setColor(0.3, 0.3, 0.3)
+    love.graphics.printf(text, 30, 120, 200, "left")
 end
 
 -- Animation controller
 function newAnimation(image, width, height, duration)
-  local animation = {}
-  animation.spriteSheet = image;
-  animation.quads = {};
+    local animation = {}
+    animation.spriteSheet = image;
+    animation.quads = {};
 
-  for y = 0, image:getHeight() - height, height do
-    for x = 0, image:getWidth() - width, width do
-      table.insert(animation.quads, love.graphics.newQuad(x, y, width, height, image:getDimensions()))
+    for y = 0, image:getHeight() - height, height do
+      for x = 0, image:getWidth() - width, width do
+        table.insert(animation.quads, love.graphics.newQuad(x, y, width, height, image:getDimensions()))
+      end
     end
-  end
 
-  animation.duration = duration or 1
-  animation.currentTime = 0
+    animation.duration = duration or 1
+    animation.currentTime = 0
 
-  return animation
+    return animation
 end
 
 function speakTimer()
-  if allowSpeak then
-    allowSpeak = false
-  end
-  speakClock = cron.after(3, function() allowSpeak = true end)
+    if allowSpeak then
+      allowSpeak = false
+    end
+    speakClock = cron.after(3, function() allowSpeak = true end)
 end
 
 function sceneTimer()
-  if allowChange then
-    allowChange = false
-  end
-  sceneClock = cron.after(1, function() allowChange = true end)
+    if allowChange then
+      allowChange = false
+    end
+    sceneClock = cron.after(1, function() allowChange = true end)
 end
 
 function invisibilityTimer()
-  if allowInvis then
-    allowInvis = false
-  end
-  invisClock = cron.after(10, function() allowInvis = true end)
+    if allowInvis then
+      allowInvis = false
+    end
+    invisClock = cron.after(10, function() allowInvis = true end)
 end
 
 function invisDuration()
-  if visible then
-    visible = false
-  end
-  duration = cron.after(2, function() visible = true end)
+    if visible then
+      visible = false
+    end
+    duration = cron.after(2, function() visible = true end)
 end

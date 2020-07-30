@@ -5,11 +5,11 @@ Enemy = Object.extend(Object)
 
 local timeElapsed = 0
 
-function Enemy.new(self, u_state, d_state, x, y)
+function Enemy.new(self, u_state, d_state, x, y, startSpeed)
   --self.anim = newAnimation(love.graphics.newImage("assets/enemies/angryAnim.png"), 250, 250, 4)
   self.x = x
   self.y = y
-  self.speed = 50
+  self.speed = startSpeed
   self.angle = 0
   self.size = 50
   self.origin_x = 125
@@ -20,7 +20,7 @@ function Enemy.new(self, u_state, d_state, x, y)
   self.timeElapsed = 0
 end
 
-function Enemy:update(target, isVisible, speed, dt)
+function Enemy:update(target, isVisible, dt)
   self.timeElapsed = self.timeElapsed + 1 * dt
 
   if self.timeElapsed > 3 and isVisible then
@@ -28,11 +28,15 @@ function Enemy:update(target, isVisible, speed, dt)
     cos = math.cos(self.angle)
     sin = math.sin(self.angle)
     self.previous_x = self.x
-    self.x = self.x + math.max(self.speed, speed)  * cos * dt
-    self.y = self.y + math.max(self.speed, speed) * sin * dt
+    -- self.x = self.x + math.max(self.speed, speed)  * cos * dt
+    -- self.y = self.y + math.max(self.speed, speed) * sin * dt
+    self.x = self.x + self.speed * cos * dt
+    self.y = self.y + self.speed * sin * dt
   elseif isVisible == false then
-    self.x = self.x + math.max(self.speed, speed)  * cos * dt
-    self.y = self.y + math.max(self.speed, speed) * sin * dt
+    -- self.x = self.x + math.max(self.speed, speed)  * cos * dt
+    -- self.y = self.y + math.max(self.speed, speed) * sin * dt
+    self.x = self.x + self.speed  * cos * dt
+    self.y = self.y + self.speed * sin * dt
   end
 end
 
