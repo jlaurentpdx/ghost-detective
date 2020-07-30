@@ -27,10 +27,6 @@ posStart = cursor.y
 posCredits = posStart + 70
 posExit = posCredits + 70
 
-buttonStart = Button(550, posStart - 10, "New Game", font_button)
-buttonCredits = Button(550, posCredits - 10, "Credits", font_button)
-buttonExit = Button(550, posExit - 10, "Exit", font_button)
-
 function titleload()
 
   -- Main Menu audio
@@ -63,6 +59,15 @@ function titleload()
   titleFaderState = false
 
   fadeTween = {5, titleFader, 1.0, 'linear'}
+
+  if clear_level1 and not clear_level2 then
+    buttonStart = Button(550, posStart - 10, "Continue", font_button)
+  else
+    buttonStart = Button(550, posStart - 10, "New Game", font_button)
+  end
+
+  buttonCredits = Button(550, posCredits - 10, "Credits", font_button)
+  buttonExit = Button(550, posExit - 10, "Exit", font_button)
 end
 
 function titledraw()
@@ -118,9 +123,13 @@ function titleupdate(dt)
     titleFader = titleFader + 1 * dt
     bgmVolume = bgmVolume - 2 * dt
     bgm:setVolume(bgmVolume)
-    if titleFader >= 1 then
+    if titleFader >= 1 and clear_level1 then
       bgm:stop()
-      scene="level-1" end
+      scene="level-2"
+    elseif titleFader >= 1 then
+      bgm:stop()
+      scene="level-1"
+    end
   end
 end
 

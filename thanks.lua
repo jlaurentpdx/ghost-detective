@@ -4,7 +4,6 @@ local tween = require("libs/tween")
 ssj_logo = love.graphics.newImage("assets/temp/ssj_logo.png")
 
 function thanksload()
-
   fadeIn = 1
 
   love.graphics.setFont(font_button)
@@ -24,6 +23,11 @@ function thanksdraw()
 end
 
 function thanksupdate(dt)
+
+  if bgm:isPlaying() then
+    bgm:stop()
+  end
+  
   if fadeIn > 0 then
     fadeIn = fadeIn - 1 * dt
   end

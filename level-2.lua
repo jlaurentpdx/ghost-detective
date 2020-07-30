@@ -318,7 +318,7 @@ function level2draw()
 
    -- Draw enemies for this level
    love.graphics.setColor(1, 1, 1, 1)
-   if ((restart and timeElapsed > 0) or timeElapsed > 70) then
+   if enemy1.draw_state then
      enemy1:draw(angryAnim)
    end
    if enemy2.draw_state then

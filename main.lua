@@ -16,9 +16,11 @@ clear_level2 = false
 function love.load()
     if clear_level1 and not clear_level2 then
       level2load()
-      scene = "level-2"
+      titleload()
+      scene = "title"
     elseif clear_level2 then
       thanksload()
+      titleload()
       scene="thanks"
     else
       level1load()
