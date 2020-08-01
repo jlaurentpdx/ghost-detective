@@ -15,6 +15,7 @@ title.y = -200
 title.font = font_title
 
 titleTween = tween.new(2, title, {y = 0}, 'outCubic')
+--thisTween = tween.new(seconds, tablename, tweenTableItem, 'Tween style')
 
 cursor = {}
 cursor.x = 500
@@ -80,7 +81,7 @@ function titledraw()
   buttonStart:draw()
   buttonCredits:draw()
   buttonExit:draw()
-  love.graphics.print("v gj.0.0", 700, 550)
+  love.graphics.print(version, 700, 550)
   love.graphics.printf("press SPACE to start", 0, 550, 800, "center")
 
   love.graphics.draw(cursor.image, cursor.x, cursor.y, cursor.angle, cursor.scale, cursor.scale, cursor.origin_x)

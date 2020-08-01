@@ -1,6 +1,7 @@
 Object = require("libs/classic")
 tween = require("libs/tween")
 cron = require("libs/cron")
+version = "v. gj.0.1"
 
 require("title")
 require("credits")
